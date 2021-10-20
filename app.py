@@ -121,7 +121,7 @@ def get_vid(query_term):
                 vid_file_link = item['link']
                 break
 
-        file_name = '../temp_vid.mp4'
+        file_name = 'temp_vid.mp4'
         
         r = requests.get(vid_file_link, stream=True)
         with open(file_name, 'wb') as f:
@@ -141,7 +141,7 @@ def generate_vid_and_quote(num_words=2):
     query = choose_random_word_from_quote(quote, num_words)
     my_quote_vid, vid_link, vid_author, vid_author_url = get_vid(query)
 
-    file_name = '../temp_vid.mp4'
+    file_name = 'temp_vid.mp4'
     f = open(file_name, "wb")
     f.write(my_quote_vid)
     f.close()
@@ -176,7 +176,7 @@ def generate_vid_and_quote(num_words=2):
         
         target_res = (target_width, target_height)
         
-        out = cv2.VideoWriter('../temp_op.mp4', fourcc, fps, target_res)
+        out = cv2.VideoWriter('temp_op.mp4', fourcc, fps, target_res)
 
         max_seconds = 10 # user defined max
         max_frames = fps * max_seconds
@@ -251,7 +251,7 @@ def generate_vid_and_quote(num_words=2):
         out.release() 
     cap.release()
 
-    f = open('../temp_op.mp4', 'rb')
+    f = open('temp_op.mp4', 'rb')
     my_quote_vid_bytes = f.read()
     f.close()
 
@@ -259,7 +259,7 @@ def generate_vid_and_quote(num_words=2):
 
 
 def main():
-    container = st.container()
+    """container = st.container()
     my_quote_vid, vid_link, vid_author, vid_author_url = generate_vid_and_quote()
     container.video(my_quote_vid)
     st.markdown('---')
@@ -268,8 +268,12 @@ def main():
     st.markdown('''<small>Video provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
     st.markdown('''<small>This [video]({}) was taken by [{}]({}) on Pexels.</small>'''.format(vid_link, vid_author, vid_author_url), unsafe_allow_html = True)
     st.markdown('---')
-    os.remove('../temp_vid.mp4')
-    os.remove('../temp_op.mp4')
+    os.remove('temp_vid.mp4')
+    os.remove('temp_op.mp4')
+    """
+    f = open("myfile.txt", "x")
+    path = os.path.dirname(__file__)
+    st.info(path)
     return None
 
 
