@@ -1,5 +1,6 @@
 numpy
 opencv-python-headless
 opencv-contrib-python
+opencv-contrib-python-headless
 opencv-python
 streamlit==1.0.0
