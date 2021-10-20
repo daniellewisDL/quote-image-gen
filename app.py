@@ -275,6 +275,9 @@ def main():
     path = os.path.dirname(__file__)
     st.info(path)
     st.info(os.listdir())
+    f.close()
+    f = open("myfile.txt", "r")
+    
     return None
 
 
