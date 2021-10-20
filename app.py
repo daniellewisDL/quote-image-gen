@@ -259,7 +259,7 @@ def generate_vid_and_quote(num_words=2):
 
 
 def main():
-    """container = st.container()
+    container = st.container()
     my_quote_vid, vid_link, vid_author, vid_author_url = generate_vid_and_quote()
     container.video(my_quote_vid)
     st.markdown('---')
@@ -268,17 +268,9 @@ def main():
     st.markdown('''<small>Video provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
     st.markdown('''<small>This [video]({}) was taken by [{}]({}) on Pexels.</small>'''.format(vid_link, vid_author, vid_author_url), unsafe_allow_html = True)
     st.markdown('---')
-    os.remove('temp_vid.mp4')
-    os.remove('temp_op.mp4')
-    """
-    f = open("myfile.txt", "w")
-    f.write("SOme text")
-    path = os.path.dirname(__file__)
-    st.info(path)
-    st.info(os.listdir())
-    f.close()
-    f = open("myfile.txt", "r")
-    st.info(f)
+    #os.remove('temp_vid.mp4')
+    #os.remove('temp_op.mp4')
+
     return None
 
 
