@@ -1,1 +1,2 @@
+opencv-python==4.5.3.56
 streamlit==1.0.0
