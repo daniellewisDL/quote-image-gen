@@ -274,6 +274,7 @@ def main():
     f = open("myfile.txt", "w")
     path = os.path.dirname(__file__)
     st.info(path)
+    st.info(os.listdir())
     return None
 
 
