@@ -272,12 +272,13 @@ def main():
     os.remove('temp_op.mp4')
     """
     f = open("myfile.txt", "w")
+    f.write("SOme text")
     path = os.path.dirname(__file__)
     st.info(path)
     st.info(os.listdir())
     f.close()
     f = open("myfile.txt", "r")
-    
+    st.info(f)
     return None
 
 
