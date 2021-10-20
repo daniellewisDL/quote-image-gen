@@ -271,7 +271,7 @@ def main():
     os.remove('temp_vid.mp4')
     os.remove('temp_op.mp4')
     """
-    f = open("myfile.txt", "x")
+    f = open("myfile.txt", "w")
     path = os.path.dirname(__file__)
     st.info(path)
     return None
