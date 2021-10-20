@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
+import os
 import requests
 from io import BytesIO
 import random
@@ -7,6 +8,8 @@ import string
 from string import ascii_letters
 import textwrap
 import math
+import numpy as np
+import cv2
 import pandas as pd
 import streamlit as st
 pexels_api_key = st.secrets["pexels_api_key"]
@@ -56,37 +59,6 @@ def choose_random_word_from_quote(quote, num_words):
         return " ".join(random.sample(quote_word_list_no_stopwords, min(num_words, len(quote_word_list_no_stopwords))))
 
 
-# this function takes a search query
-# it then  returns an image file from Pexels
-# it then resizes to  largest dimension 800 px preserving aspect ratio
-# it returns the PIL image
-
-def get_img(query_term):
-
-    query = query_term
-    per_page=80
-    pexels_colors = ['red', 'orange', 'yellow', 'green', 'turquoise', 'blue', 'violet', 'pink', 'brown', 'black', 'gray', 'white', '']
-    color_req = random.choice(pexels_colors)
-    page=1
-    headers = {'Authorization': pexels_api_key}
-
-    search_ref = """https://api.pexels.com/v1/search?query={}&per_page={}&color={}&page={}""".format(query, per_page, color_req, page)
-    search_request = requests.get(search_ref, headers=headers)
-    img_json_from_search_req = json.loads(search_request.content.decode('utf-8'))
-
-    num_images = len(img_json_from_search_req['photos'])
-
-    if num_images == 0:
-        st.info("No pexels image ... using default")
-        img = Image.open('grey.png')
-        return img, "#", "#", "#"
-    else:
-        random_index = random.randint(0,num_images-1)
-        img_url = img_json_from_search_req['photos'][random_index]['src']['large']
-        img_request = requests.get(img_url, headers=headers)
-        img = Image.open(BytesIO(img_request.content))
-        return img, img_json_from_search_req['photos'][random_index]['src']['original'], img_json_from_search_req['photos'][random_index]['photographer'], img_json_from_search_req['photos'][random_index]['photographer_url']
-
 def wrap_nicely(text_to_wrap):
     # Lower starting point for width is longest single word, or 15 whichever is higher
     lower_width = max(15, len(max(text_to_wrap.split(" "), key=len)))
@@ -114,76 +86,193 @@ def wrap_nicely(text_to_wrap):
     return textwrap.wrap(text=text_to_wrap, width=best_width)
 
 
-def generate_image_and_quote(num_words=2):
-    
-    # Request a quote from consol.csv according to the topic_to_obtain
+def get_vid(query_term):
+    query = query_term
+    size = "small"
+    per_page=80
+    page=1
+    headers = {'Authorization': pexels_api_key}
+    search_ref = """https://api.pexels.com/videos/search?query={}&per_page={}&page={}""".format(query, per_page, page)
+    search_request = requests.get(search_ref, headers=headers)
+    vid_json_from_search_req = json.loads(search_request.content.decode('utf-8'))
+
+    num_vids = len(vid_json_from_search_req['videos'])
+
+    if num_vids == 0:
+        st.info("No pexels image ... using default")
+        vid = Image.open('grey.png')
+        return vid, "#", "#", "#"
+    else:
+        random_index = random.randint(0,num_vids-1)
+        vid_url_overall = """https://api.pexels.com/videos/videos/{}""".format(vid_json_from_search_req['videos'][random_index]['id'])
+        vid_request = requests.get(vid_url_overall, headers=headers)
+        vid_request_json = json.loads(vid_request.content.decode('utf-8'))
+
+        vid_url = vid_request_json['url']
+        vid_author = vid_request_json['user']['name']
+        vid_author_url = vid_request_json['user']['url']
+        
+        # Set vid_file_link to first item
+        vid_file_link = vid_request_json['video_files'][0]['link']
+        
+        # We want to get an SD link, so iterate over video_files to find first one
+        for item in vid_request_json['video_files']:
+            if item["quality"] == "sd":
+                vid_file_link = item['link']
+                break
+
+        file_name = 'temp_vid.mp4'
+        
+        r = requests.get(vid_file_link, stream=True)
+        with open(file_name, 'wb') as f:
+            for chunk in r.iter_content(chunk_size = 1024*1024):
+                if chunk:
+                    f.write(chunk)
+        
+        f = open(file_name, "rb")
+        video_bytes = f.read()
+        f.close()
+
+        return video_bytes, vid_url, vid_author, vid_author_url
+
+
+def generate_vid_and_quote(num_words=2):
     quote, author = get_quote()
-
-    # Choose two (or num_words) random words from the quote
     query = choose_random_word_from_quote(quote, num_words)
+    my_quote_vid, vid_link, vid_author, vid_author_url = get_vid(query)
 
-    # Obtain an image on the basis of the query
-    my_quote_image, photo_link, photo_author, photographer_url = get_img(query)
-    
-    # Create new image of size as Pexels returned image, with a transparency channel of 0
-    txt = Image.new("RGBA", my_quote_image.size, (255,255,255,0))
-    
-    draw = ImageDraw.Draw(txt)
-    text = quote
+    file_name = 'temp_vid.mp4'
+    f = open(file_name, "wb")
+    f.write(my_quote_vid)
+    f.close()
+    video_path = file_name
 
-    wrapped_text_list = wrap_nicely(text)
-    wrapped_text = "\n".join(wrapped_text_list)
-    longest_line = max(wrapped_text_list, key=len)
+    cap = cv2.VideoCapture(video_path)
+    max_target_dim = 800
 
-    # To determine the max font size for the quotation, we set a max width e.g. 80pc
-    # We want the longest word including punctuation to fit on one line
-    # NB font size is approximately equal to pixel size, so font pt 10 is approx 10px x 10px
-    
-    max_quote_width_ratio = 0.6
-    max_quote_height_ratio = 0.5
-    
-    # We want the longest word including punctuation to fit on one line
-    
-    width_to_fill = int(max_quote_width_ratio * my_quote_image.size[0])
-    height_to_not_overflow = int(max_quote_height_ratio * my_quote_image.size[1])
-    pixels_per_char_x = int( width_to_fill / len(longest_line))
-    
-    # Guess font size, then test width in pixels of longest line, then scale to fill
-    font_size_x = int(pixels_per_char_x)
-    font = ImageFont.truetype('arial.ttf', font_size_x)
-    font_size_x = int(font_size_x * width_to_fill / font.getsize(longest_line)[0])
-    font = ImageFont.truetype('arial.ttf', font_size_x)
+    if cap.isOpened():
 
-    # Now check the height of the first letters of each line stacked, and if too big, scale back down
-    font_rows_height_stacked = 0
-    for item in wrapped_text_list:
-        font_rows_height_stacked = font_rows_height_stacked + font.getsize(item[0])[1]
-    if font_rows_height_stacked > height_to_not_overflow:
-        font_size_x = int(font_size_x * height_to_not_overflow / font_rows_height_stacked )
-    
-    font_attrib = ImageFont.truetype('arial.ttf', 24)
+        fourcc = cv2.VideoWriter_fourcc('H', '2', '6', '4')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        source_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        source_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        source_res = (source_width, source_height)
+        
+        if source_width > source_height:
+            
+            if source_width < max_target_dim:
+                target_width = source_width
+                target_height = source_height
+            else:
+                target_width = max_target_dim
+                target_height = int(source_height * max_target_dim / source_width)
+        else:
+            if source_height < max_target_dim:
+                target_width = source_width
+                target_height = source_height
+            else:
+                target_height = max_target_dim
+                target_width = int(source_width * max_target_dim / source_height)
+        
+        target_res = (target_width, target_height)
+        
+        out = cv2.VideoWriter('temp_op.mp4', fourcc, fps, target_res)
 
-    xclr1, xclr2, xclr3 = 0, 0, 0
-    opac = 255
-    draw.text(xy=(txt.size[0]/20, txt.size[1]/20), text=wrapped_text, font=font, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
-    draw.text(xy=(txt.size[0]/20, txt.size[1]*18/20), text=author, font=font_attrib, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
+        max_seconds = 10 # user defined max
+        max_frames = fps * max_seconds
+        
+        txt = Image.new("RGBA", target_res, (255,255,255,0))
+        draw = ImageDraw.Draw(txt)
+        text = quote
 
-    applier = ImageEnhance.Brightness(my_quote_image.convert("RGBA"))
-    
-    return Image.alpha_composite(applier.enhance(.7), txt), photo_link, photo_author, photographer_url
+        wrapped_text_list = wrap_nicely(text)
+        wrapped_text = "\n".join(wrapped_text_list)
+        longest_line = max(wrapped_text_list, key=len)
 
+        # To determine the max font size for the quotation, we set a max width e.g. 80pc
+        # We want the longest word including punctuation to fit on one line
+        # NB font size is approximately equal to pixel size, so font pt 10 is approx 10px x 10px
+        
+        max_quote_width_ratio = 0.6
+        max_quote_height_ratio = 0.5
+        
+        # We want the longest word including punctuation to fit on one line
+        
+        width_to_fill = int(max_quote_width_ratio * target_width)
+        height_to_not_overflow = int(max_quote_height_ratio * target_height)
+        pixels_per_char_x = int( width_to_fill / len(longest_line))
+        
+        # Guess font size, then test width in pixels of longest line, then scale to fill
+        font_size_x = int(pixels_per_char_x)
+        font = ImageFont.truetype('arial.ttf', font_size_x)
+        font_size_x = int(font_size_x * width_to_fill / font.getsize(longest_line)[0])
+        font = ImageFont.truetype('arial.ttf', font_size_x)
+
+        # Now check the height of the first letters of each line stacked, and if too big, scale back down
+        font_rows_height_stacked = 0
+        for item in wrapped_text_list:
+            font_rows_height_stacked = font_rows_height_stacked + font.getsize(item[0])[1]
+        if font_rows_height_stacked > height_to_not_overflow:
+            font_size_x = int(font_size_x * height_to_not_overflow / font_rows_height_stacked )
+        
+        font_attrib = ImageFont.truetype('arial.ttf', 24)
+
+        xclr1, xclr2, xclr3 = 0, 0, 0
+        opac = 255
+        draw.text(xy=(txt.size[0]/20, txt.size[1]/20), text=wrapped_text, font=font, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
+        draw.text(xy=(txt.size[0]/20, txt.size[1]*18/20), text=author, font=font_attrib, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
+        
+        
+        frame = None
+        a=0
+        frame_count = 0
+        while True:
+            a=a+1
+            frame_count = frame_count + 1
+            
+            try:
+                is_success, frame = cap.read()
+            except cv2.error:
+                continue
+            if not is_success:
+                break
+
+            image = frame
+            image = cv2.resize(image, target_res)
+                    
+            applier = ImageEnhance.Brightness(Image.fromarray(image.astype('uint8'), 'RGB').convert("RGBA"))
+            PIL_output = Image.alpha_composite(applier.enhance(.5), txt)
+            image_output = np.array(PIL_output.convert("RGB"))
+            
+            out.write(image_output)
+
+            if frame_count >= max_frames: break
+            
+        out.release() 
+    cap.release()
+
+    f = open('temp_op.mp4', 'rb')
+    my_quote_vid_bytes = f.read()
+    f.close()
+
+    return my_quote_vid_bytes, vid_link, vid_author, vid_author_url
 
 
 def main():
     container = st.container()
-    image, photo_link, photographer, photographer_url = generate_image_and_quote(num_words=2)
-    container.image(image)
+    my_quote_vid, vid_link, vid_author, vid_author_url = generate_vid_and_quote()
+    #video_file = open('temp_op.mp4', 'rb')
+    #video_bytes = video_file.read()
+    #container.video(video_bytes)
+    container.video(my_quote_vid)
     st.markdown('---')
     if st.button('Generate another'): container.empty()
     st.markdown('---')
-    st.markdown('''<small>Photos provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
-    st.markdown('''<small>This [photo]({}) was taken by [{}]({}) on Pexels.</small>'''.format(photo_link, photographer, photographer_url), unsafe_allow_html = True)
-    
+    st.markdown('''<small>Video provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
+    st.markdown('''<small>This [video]({}) was taken by [{}]({}) on Pexels.</small>'''.format(vid_link, vid_author, vid_author_url), unsafe_allow_html = True)
+    st.markdown('---')
+    os.remove('temp_vid.mp4')
+    os.remove('temp_op.mp4')
     return None
 
 
