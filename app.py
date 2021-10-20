@@ -150,9 +150,7 @@ def generate_vid_and_quote(num_words=2):
     cap = cv2.VideoCapture(video_path)
     max_target_dim = 800
 
-    st.info("whoethi")
     if cap.isOpened():
-        st.info("whoethi")
         fourcc = cv2.VideoWriter_fourcc('H', '2', '6', '4')
         fps = cap.get(cv2.CAP_PROP_FPS)
         source_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
