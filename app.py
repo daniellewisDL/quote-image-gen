@@ -10,7 +10,7 @@ import streamlit as st
 from os import environ
 
 # For Heroku
-if pexels_api_key in environ:
+if 'pexels_api_key' in environ:
     pexels_api_key = environ['pexels_api_key']
 else:
     pexels_api_key = st.secrets["pexels_api_key"]
