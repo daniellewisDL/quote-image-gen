@@ -7,6 +7,12 @@ import string
 import textwrap
 import pandas as pd
 import streamlit as st
+from os import environ
+
+# For Heroku
+pexels_api_key = environ['pexels_api_key']
+
+# For share.streamlit.io
 pexels_api_key = st.secrets["pexels_api_key"]
 
 # standard list of stopwords to remove
@@ -43,8 +49,8 @@ def get_quote():
     if random.randint(0,9) == 0:
         sampled_quote = my_quote_data[my_quote_data['Category']=="vegan"].sample(n=1)
     else:
-        #sampled_quote = my_quote_data[my_quote_data['Category']=="inspirational"].sample(n=1)
-        sampled_quote = my_quote_data.sample(n=1)
+        sampled_quote = my_quote_data[my_quote_data['Category']=="inspirational"].sample(n=1)
+        #sampled_quote = my_quote_data.sample(n=1)
     
     return sampled_quote['Quote'].iloc[0], sampled_quote['Author'].iloc[0]
 
@@ -59,10 +65,6 @@ def choose_random_word_from_quote(quote, num_words):
         return " ".join(random.sample(quote_word_list_no_stopwords, min(num_words, len(quote_word_list_no_stopwords))))
 
 
-# this function takes a search query
-# it then  returns an image file from Pexels
-# it then resizes to  largest dimension 800 px preserving aspect ratio
-# it returns the PIL image
 
 def get_img(query_term):
 
