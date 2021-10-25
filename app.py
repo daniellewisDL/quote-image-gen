@@ -10,15 +10,10 @@ import streamlit as st
 from os import environ
 
 # For Heroku
-try:
+if pexels_api_key in environ:
     pexels_api_key = environ['pexels_api_key']
-except:
-    st.info('No environment variable for API key')
-# For share.streamlit.io
-try:
+else:
     pexels_api_key = st.secrets["pexels_api_key"]
-except:
-    st.info('No st.secrets for API key')
 
 # standard list of stopwords to remove
 
