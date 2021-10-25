@@ -12,10 +12,13 @@ from os import environ
 # For Heroku
 try:
     pexels_api_key = environ['pexels_api_key']
-
+except:
+    st.info('No environment variable for API key')
 # For share.streamlit.io
 try:
     pexels_api_key = st.secrets["pexels_api_key"]
+except:
+    st.info('No st.secrets for API key')
 
 # standard list of stopwords to remove
 
@@ -59,12 +62,12 @@ def get_quote():
 def choose_random_word_from_quote(quote, num_words):
     quote_word_list_no_stopwords = []
     quote_punc_strip_list = quote.translate(str.maketrans('', '', string.punctuation)).lower().split(" ")
-    if len(quote_punc_strip_list) == 0: return ""
+    if len(quote_punc_strip_list) == 0: return "random"
     else:
         for word in list(set(quote_punc_strip_list)):
-            if word not in stopwords:
+            if word not in stopwords1:
                 quote_word_list_no_stopwords.append(word)
-        return " ".join(random.sample(quote_word_list_no_stopwords, min(num_words, len(quote_word_list_no_stopwords))))
+        return " ".join(random.sample(quote_word_list_no_stopwords, min(num_words, len(quote_word_list_no_stopwords))))+" random"
 
 
 
