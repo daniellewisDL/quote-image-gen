@@ -10,10 +10,12 @@ import streamlit as st
 from os import environ
 
 # For Heroku
-pexels_api_key = environ['pexels_api_key']
+try:
+    pexels_api_key = environ['pexels_api_key']
 
 # For share.streamlit.io
-pexels_api_key = st.secrets["pexels_api_key"]
+try:
+    pexels_api_key = st.secrets["pexels_api_key"]
 
 # standard list of stopwords to remove
 
