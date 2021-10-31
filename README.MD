@@ -1,4 +1,6 @@
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/daniellewisdl/quote-image-gen/main/app.py)
+[![Open in Heroku]('heroku_badge_black_white.svg')](https://quote-image-gen.herokuapp.com/)
+
 
 # Quotation + image = inspiration
 
