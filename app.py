@@ -8,6 +8,7 @@ import textwrap
 import pandas as pd
 import streamlit as st
 from os import environ, path
+import base64
 
 # For Heroku
 if 'pexels_api_key' in environ:
