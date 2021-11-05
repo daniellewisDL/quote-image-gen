@@ -35,6 +35,25 @@ stopwords1 = {'ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there
 
 stopwords = {''}
 
+
+# Thanks to GokulNC for this code snippet
+@st.cache(allow_output_mutation=True)
+def get_base64_of_bin_file(bin_file):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+@st.cache(allow_output_mutation=True)
+def get_img_with_href(local_img_path, target_url):
+    img_format = path.splitext(local_img_path)[-1].replace('.', '')
+    bin_str = get_base64_of_bin_file(local_img_path)
+    html_code = f'''
+        <a href="{target_url}" target="_blank">
+            <img src="data:image/{img_format};base64,{bin_str}" />
+        </a>'''
+    return html_code
+
+
 @st.cache
 def get_quote_data():
     quote_df = pd.read_csv('consol.csv')
@@ -211,6 +230,10 @@ def main():
     st.markdown('''<small>Photos provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
     st.markdown('''<small>This [photo]({}) was taken by [{}]({}) on Pexels.</small>'''.format(photo_link, photographer, photographer_url), unsafe_allow_html = True)
     st.markdown('---')
+    png_html = get_img_with_href('GitHub-Mark-32px.png', 'https://github.com/daniellewisDL/quote-image-gen')
+    st.markdown(png_html, unsafe_allow_html=True)
+    png_html = get_img_with_href('GitHub-Mark-Light-32px.png', 'https://github.com/daniellewisDL/quote-image-gen')
+    st.markdown(png_html, unsafe_allow_html=True)
 
     return None
 
