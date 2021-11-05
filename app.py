@@ -1,57 +1,39 @@
-import streamlit as st
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
 import requests
+from io import BytesIO
+import random
 import json
+import string
+import textwrap
 import pandas as pd
+import streamlit as st
 from os import environ, path
-import base64
 
 # For Heroku
-if 'sandbox_client_id' in environ:
-    sandbox_client_id = environ['sandbox_client_id']
-    sandbox_client_secret = environ['sandbox_client_secret']
-    live_client_id = environ['live_client_id']
-    live_client_secret = environ['live_client_secret']
-    passphrase = environ['passphrase']
+if 'pexels_api_key' in environ:
+    pexels_api_key = environ['pexels_api_key']
 else:
-    sandbox_client_id = st.secrets["sandbox_client_id"]
-    sandbox_client_secret = st.secrets["sandbox_client_secret"]
-    live_client_id = st.secrets["live_client_id"]
-    live_client_secret = st.secrets["live_client_secret"]
-    passphrase = st.secrets["passphrase"]
+    pexels_api_key = st.secrets["pexels_api_key"]
 
-sandbox_headers = {
-    'ClientID': sandbox_client_id,
-    'ClientSecret': sandbox_client_secret,
-    'Accept-Language': 'en-HK'
-}
+# standard list of stopwords to remove
 
-live_headers = {
-    'ClientID': live_client_id,
-    'ClientSecret': live_client_secret,
-    'Accept-Language': 'en-HK'
-}
+stopwords1 = {'ourselves', 'hers', 'between', 'yourself', 'but', 'again', 'there',
+             'about', 'once', 'during', 'out', 'very', 'having', 'with', 'they',
+             'own', 'an', 'be', 'some', 'for', 'do', 'its', 'yours', 'such', 'into',
+             'of', 'most', 'itself', 'other', 'off', 'is', 's', 'am', 'or', 'who',
+             'as', 'from', 'him', 'each', 'the', 'themselves', 'until', 'below',
+             'are', 'we', 'these', 'your', 'his', 'through', 'don', 'nor', 'me',
+             'were', 'her', 'more', 'himself', 'this', 'down', 'should', 'our',
+             'their', 'while', 'above', 'both', 'up', 'to', 'ours', 'had', 'she',
+             'all', 'no', 'when', 'at', 'any', 'before', 'them', 'same', 'and',
+             'been', 'have', 'in', 'will', 'on', 'does', 'yourselves', 'then',
+             'that', 'because', 'what', 'over', 'why', 'so', 'can', 'did', 'not',
+             'now', 'under', 'he', 'you', 'herself', 'has', 'just', 'where', 'too',
+             'only', 'myself', 'which', 'those', 'i', 'after', 'few', 'whom', 't',
+             'being', 'if', 'theirs', 'my', 'against', 'a', 'by', 'doing', 'it',
+             'how', 'further', 'was', 'here', 'than', 'isnt', 'dont'}
 
-sandbox_domain_url="https://developer.hsbc.com.hk/sandbox/open-banking/v1.0/"
-live_domain_url = "https://api.hsbc.com.hk/live/open-banking/v1.0/"
-
-api_addresses = [
-        'Choose...',
-        'atms',
-        'branches',
-        'personal-foreign-exchange-rates',
-        'business-integrated-accounts',
-        'commercial-cards',
-        'commercial-secured-lending',
-        'commercial-unsecured-lending',
-        'personal-all-in-one-and-savings-accounts',
-        'personal-credit-cards',
-        'personal-current-accounts',
-        'personal-foreign-currency-accounts',
-        'personal-mortgages',
-        'personal-secured-loans',
-        'personal-unsecured-loans',
-        'time-deposit-accounts'
-]
+stopwords = {''}
 
 
 # Thanks to GokulNC for this code snippet
@@ -72,93 +54,189 @@ def get_img_with_href(local_img_path, target_url):
     return html_code
 
 
-def visualise(api_name, response_json, pretty_json):
+@st.cache
+def get_quote_data():
+    quote_df = pd.read_csv('consol.csv')
+    quote_df = quote_df.drop(quote_df[quote_df.len_quote > 120].index)
+    return quote_df
+
+def get_quote():
+    my_quote_data = get_quote_data()
     
-    if api_name=='atms':
-        st.subheader("HSBC HK ATM locations")
-        geo_list = []
-        for atm in response_json["data"][0]["Brand"][0]["ATM"]:
-            geo_list.append([float(atm["ATMAddress"]["LatitudeDescription"]),float(atm["ATMAddress"]["LongitudeDescription"])])
-        geo_pandas = pd.DataFrame(geo_list, columns = ["latitude", "longitude"])
-        st.map(geo_pandas)
-        
-    elif api_name=='branches':
-        st.subheader("HSBC HK branch locations")
-        geo_list = []
-        for branch in response_json["data"][0]["Brand"][0]["Branch"]:
-            geo_list.append([float(branch["BranchAddress"]["LatitudeDescription"]),float(branch["BranchAddress"]["LongitudeDescription"])])
-        geo_pandas = pd.DataFrame(geo_list, columns = ["latitude", "longitude"])
-        st.map(geo_pandas)
+    # Give a 1 in 10 chance of a vegan related quotation
+    
+    if random.randint(0,9) == 0:
+        sampled_quote = my_quote_data[my_quote_data['Category']=="vegan"].sample(n=1)
+    else:
+        sampled_quote = my_quote_data[my_quote_data['Category']=="inspirational"].sample(n=1)
+        #sampled_quote = my_quote_data.sample(n=1)
+    
+    return sampled_quote['Quote'].iloc[0], sampled_quote['Author'].iloc[0]
 
-    elif api_name=='personal-foreign-exchange-rates':
-        st.subheader("Banknote exchange rates against HKD")
-        pfx_list = []
-        col1, col2 = st.columns(2)
-        for rate in response_json["data"][0]["Brand"][0]["ExchangeRateType"][0]["ExchangeRate"][0]["ExchangeRateTierBand"]:
-            pfx_list.append(rate)
-            col1.metric(rate["CurrencyCode"]+" bank buy rate", rate["BankBuyRate"])
-            col2.metric(rate["CurrencyCode"]+" bank sell rate", rate["BankSellRate"])
+def choose_random_word_from_quote(quote, num_words):
+    quote_word_list_no_stopwords = []
+    quote_punc_strip_list = quote.translate(str.maketrans('', '', string.punctuation)).lower().split(" ")
+    if len(quote_punc_strip_list) == 0: return "random"
+    else:
+        for word in list(set(quote_punc_strip_list)):
+            if word not in stopwords1:
+                quote_word_list_no_stopwords.append(word)
+        return " ".join(random.sample(quote_word_list_no_stopwords, min(num_words, len(quote_word_list_no_stopwords))))+" random"
 
-    elif api_name=='business-integrated-accounts': st.write("...")
-    elif api_name=='commercial-cards': st.write("...")
-    elif api_name=='commercial-secured-lending': st.write("...")
-    elif api_name=='commercial-unsecured-lending': st.write("...")
-    elif api_name=='personal-all-in-one-and-savings-accounts': st.write("...")
-    elif api_name=='personal-credit-cards': st.write("...")
-    elif api_name=='personal-current-accounts': st.write("...")
-    elif api_name=='personal-foreign-currency-accounts': st.write("...")
-    elif api_name=='personal-mortgages': st.write("...")
-    elif api_name=='personal-secured-loans': st.write("...")
-    elif api_name=='personal-unsecured-loans': st.write("...")
-    elif api_name=='time-deposit-accounts': st.write("...")
 
-    st.write("First {} characters of the JSON response".format(len(pretty_json)))
-    st.code(pretty_json, language='json')
 
-    return None
+def get_img(query_term):
+
+    query = query_term + " random"
+    per_page=80
+    pexels_colors = ['red', 'orange', 'yellow', 'green', 'turquoise', 'blue', 'violet', 'pink', 'brown', 'black', 'gray', 'white', '']
+    color_req = random.choice(pexels_colors)
+    page=1
+    headers = {'Authorization': pexels_api_key}
+
+    search_ref = """https://api.pexels.com/v1/search?query={}&per_page={}&color={}&page={}""".format(query, per_page, color_req, page)
+    search_request = requests.get(search_ref, headers=headers)
+    img_json_from_search_req = json.loads(search_request.content.decode('utf-8'))
+
+    num_images = len(img_json_from_search_req['photos'])
+
+    if num_images == 0:
+        st.info("No pexels image ... using default")
+        img = Image.open('grey.png')
+        return img, "#", "#", "#"
+    else:
+        random_index = random.randint(0,num_images-1)
+        img_url = img_json_from_search_req['photos'][random_index]['src']['large']
+        img_request = requests.get(img_url, headers=headers)
+        img = Image.open(BytesIO(img_request.content))
+        return img, img_json_from_search_req['photos'][random_index]['src']['original'], img_json_from_search_req['photos'][random_index]['photographer'], img_json_from_search_req['photos'][random_index]['photographer_url']
+
+def wrap_nicely(text_to_wrap, aspect_ratio):
+    # TODO - buiding aspect ratio functionality
+    
+    # Lower starting point for width is longest single word, or 15 whichever is higher
+    lower_width = max(15, len(max(text_to_wrap.split(" "), key=len)))
+    
+    # Initial upper bound is higher of lower bound and half the overall length of the text to wrap
+    upper_width = max(int(len(text_to_wrap)/2), lower_width)
+    
+    # This value is to be updated as we improve our estimate
+    best_width = lower_width # assume first one
+    
+    wrapped_text_list = textwrap.wrap(text=text_to_wrap, width=lower_width)
+    shortest_len = len(min(wrapped_text_list, key=len))
+    longest_len = len(max(wrapped_text_list, key=len))
+    lowest_diff_so_far = longest_len - shortest_len
+
+    for test_width in range(upper_width, lower_width, -1):
+        wrapped_text_list = textwrap.wrap(text=text_to_wrap, width=test_width)
+        if len(wrapped_text_list) == 2: continue
+        shortest_len = len(min(wrapped_text_list, key=len))
+        longest_len = len(max(wrapped_text_list, key=len))
+        if (longest_len - shortest_len) < lowest_diff_so_far:
+            lowest_diff_so_far = longest_len - shortest_len
+            best_width = test_width
+    
+    return textwrap.wrap(text=text_to_wrap, width=best_width)
+
+def gen_text_wrapped_image(size, quote, author=""):
+
+    # Create new image of size as Pexels returned image, with a transparency channel of 0
+    text_wrapped_image = Image.new("RGBA", size, (255,255,255,0))
+    
+    draw = ImageDraw.Draw(text_wrapped_image)
+    text = quote
+
+    wrapped_text_list = wrap_nicely(text, round(size[0]/size[1],2))
+    wrapped_text = "\n".join(wrapped_text_list)
+    longest_line = max(wrapped_text_list, key=len)
+
+    # To determine the max font size for the quotation, we set a max width e.g. 80pc
+    # We want the longest word including punctuation to fit on one line
+    # NB font size is approximately equal to pixel size, so font pt 10 is approx 10px x 10px
+    
+    max_quote_width_ratio = 0.6
+    max_quote_height_ratio = 0.5
+    
+    # We want the longest word including punctuation to fit on one line
+    
+    width_to_fill = int(max_quote_width_ratio * size[0])
+    height_to_not_overflow = int(max_quote_height_ratio * size[1])
+    pixels_per_char_x = int( width_to_fill / len(longest_line))
+    
+    # Guess font size, then test width in pixels of longest line, then scale to fill
+    font_size_x = int(pixels_per_char_x)
+    font = ImageFont.truetype('arial.ttf', font_size_x)
+    font_size_x = int(font_size_x * width_to_fill / font.getsize(longest_line)[0])
+    font = ImageFont.truetype('arial.ttf', font_size_x)
+
+    # Now check the height of the first letters of each line stacked, and if too big, scale back down
+    font_rows_height_stacked = 0
+    for item in wrapped_text_list:
+        font_rows_height_stacked = font_rows_height_stacked + font.getsize(item[0])[1]
+    if font_rows_height_stacked > height_to_not_overflow:
+        font_size_x = int(font_size_x * height_to_not_overflow / font_rows_height_stacked )
+    font = ImageFont.truetype('arial.ttf', font_size_x)
+
+    # Generate font size for the attribution
+    max_attrib_ratio_height = 0.05
+    max_attrib_ratio_width = 0.9
+    font_size_for_attrib = 24 # Guess at 24
+    font_attrib = ImageFont.truetype('arial.ttf', 24)
+    font_size_for_attrib = int(font_size_for_attrib * max_attrib_ratio_height / (font_attrib.getsize(author)[1] / size[1]))
+    font_attrib = ImageFont.truetype('arial.ttf', font_size_for_attrib)
+    if font_attrib.getsize(author)[0] > (max_attrib_ratio_width * size[0]):
+        font_size_for_attrib = int((font_size_for_attrib * max_attrib_ratio_width) / (font_attrib.getsize(author)[0] / size[0]))
+    font_attrib = ImageFont.truetype('arial.ttf', font_size_for_attrib)
+
+    xclr1, xclr2, xclr3 = 0, 0, 0
+    opac = 255
+    draw.text(xy=(text_wrapped_image.size[0]/20, text_wrapped_image.size[1]/20), text=wrapped_text, font=font, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
+    draw.text(xy=(text_wrapped_image.size[0]/20, text_wrapped_image.size[1]*18/20), text=author, font=font_attrib, fill=(255-xclr1,255-xclr2,255-xclr3,opac))
+
+    return text_wrapped_image
+
+
+def generate_image_and_quote(num_words=3):
+    
+    # Request a quote from consol.csv according to the topic_to_obtain
+    quote, author = get_quote()
+
+    # Choose two (or num_words) random words from the quote
+    query = choose_random_word_from_quote(quote, num_words)
+
+    # Obtain an image on the basis of the query
+    my_quote_image, photo_link, photo_author, photographer_url = get_img(query)
+
+    # Generate an image of the same size, with transparent background, and text wrapped
+    text_wrapped_image = gen_text_wrapped_image(my_quote_image.size, quote, author)
+
+    # Specify a brightness modifier for the image
+    applier = ImageEnhance.Brightness(my_quote_image.convert("RGBA"))
+    
+    # Composite the final image from the quote image darkened slightly, and the text wrapped image
+    final_image = Image.alpha_composite(applier.enhance(.7), text_wrapped_image)
+    
+    return final_image, photo_link, photo_author, photographer_url
+
+
 
 def main():
-    st.header("HSBC HK Developer API explorer")
-    st.markdown("""[HSBC HK developer portal](https://developer.hsbc.com.hk/#/home)""", unsafe_allow_html=True)
-    st.markdown("""<small>Simple app to explore HSBC HK product information APIs</small>""", unsafe_allow_html=True)
+    container = st.container()
+    image, photo_link, photographer, photographer_url = generate_image_and_quote()
+    container.image(image)
+    if st.button('Generate another'): container.empty()
     st.markdown('---')
-    sandbox_or_live = st.radio('Choose sandbox or live APIs', ['Sandbox', 'Live'])
-    chosen_api = st.selectbox('Choose which API to poll', api_addresses)
-    if sandbox_or_live == 'Live':
-        headers = live_headers
-        domain_url = live_domain_url+chosen_api
-    else:
-        headers = sandbox_headers
-        domain_url = sandbox_domain_url+chosen_api
-
+    st.markdown('''<small>Photos provided by [Pexels](https://www.pexels.com), quotations from various sources.</small>''', unsafe_allow_html = True)
+    st.markdown('''<small>This [photo]({}) was taken by [{}]({}) on Pexels.</small>'''.format(photo_link, photographer, photographer_url), unsafe_allow_html = True)
     st.markdown('---')
-
-    if chosen_api != 'Choose...':
-        response = requests.get(domain_url, headers=headers)
-        st.write(response)
-        json_response = response.json()
-        pretty_response = json.dumps(response.json(), indent=4)
-        first_n_chars = 6000
-        if len(pretty_response)<first_n_chars: first_n_chars=len(pretty_response)
-        visualise(chosen_api, json_response, pretty_response[:first_n_chars])
-    else:
-        st.write('When you choose an API, details of the response will be displayed here...')    
-
-    st.markdown('---')
-    png_html = get_img_with_href('GitHub-Mark-32px.png', 'https://github.com/daniellewisDL/hsbc-hk-api-explorer')
+    png_html = get_img_with_href('GitHub-Mark-32px.png', 'https://github.com/daniellewisDL/quote-image-gen')
     st.markdown(png_html, unsafe_allow_html=True)
-    png_html = get_img_with_href('GitHub-Mark-Light-32px.png', 'https://github.com/daniellewisDL/hsbc-hk-api-explorer')
+    png_html = get_img_with_href('GitHub-Mark-Light-32px.png', 'https://github.com/daniellewisDL/quote-image-gen')
     st.markdown(png_html, unsafe_allow_html=True)
-    
+
     return None
 
 
 if __name__ == "__main__":
-    password_attempt = st.text_input('Enter passphrase', type='password')
-    if password_attempt != passphrase:
-        st.stop()
-    else:
-        main()
-    
-# End
-
+    main()
