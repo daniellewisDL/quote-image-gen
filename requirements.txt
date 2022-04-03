@@ -6,4 +6,4 @@ opencv-python
 
 opencv-python-headless
 
-streamlit
+streamlit==1.8.1
